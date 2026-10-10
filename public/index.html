@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
   <meta charset="utf-8">
-  <meta name="app-versi" content="2026.10.10-3">
+  <meta name="app-versi" content="2026.10.10-4">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0b2d57">
   <title>Presensi — BPS Sulawesi Utara</title>
@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=2026.10.10-3">
+  <link rel="stylesheet" href="css/style.css?v=2026.10.10-4">
 </head>
 <body>
   <div class="backdrop" aria-hidden="true"><div class="bars"><i></i><i></i><i></i></div></div>
@@ -32,12 +32,6 @@
       <form class="card" id="form" novalidate>
         <div class="alert" id="formAlert" role="alert" hidden></div>
 
-        <div class="field" id="fNama">
-          <label for="nama">Nama lengkap <span class="hint">tanpa singkatan &amp; gelar</span></label>
-          <input class="input" id="nama" name="nama" autocomplete="name" autocapitalize="words" spellcheck="false" maxlength="80" placeholder="cth. Muhammad Ilham Fauzi">
-          <div class="err" id="eNama"></div>
-        </div>
-
         <div class="field" id="fKategori">
           <div class="label" id="lKategori">Kategori</div>
           <div class="seg" role="radiogroup" aria-labelledby="lKategori">
@@ -51,12 +45,42 @@
           <div class="err" id="eKategori"></div>
         </div>
 
+        <p class="pilih-dulu" id="pilihDulu">Pilih kategori terlebih dahulu.</p>
+
+        <div class="field" id="fPegawai" hidden>
+          <label for="cariPegawai">Nama pegawai <span class="hint">ketik lalu pilih dari daftar</span></label>
+          <div class="combo" id="comboPegawai">
+            <svg class="combo-ikon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <input class="input" id="cariPegawai" type="search" autocomplete="off" spellcheck="false" placeholder="Ketik nama Anda, cth. ilham"
+              role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="saranPegawai">
+            <ul class="saran" id="saranPegawai" role="listbox" hidden></ul>
+          </div>
+          <div class="pilihan" id="pilihPegawai" hidden>
+            <div class="pilihan-isi">
+              <div class="pilihan-nama" id="pNama"></div>
+              <span class="chip blue" id="pSatker"></span>
+            </div>
+            <button type="button" class="link" id="gantiPegawai">Ganti</button>
+          </div>
+          <div class="err" id="ePegawai"></div>
+          <div class="form-sub" id="pegawaiInfo">Nama tidak ditemukan? Hubungi panitia.</div>
+        </div>
+
+        <div id="grupUmum" hidden>
+        <div class="field" id="fNama">
+          <label for="nama">Nama <span class="hint">tanpa singkatan &amp; gelar</span></label>
+          <input class="input" id="nama" name="nama" autocomplete="name" autocapitalize="words" spellcheck="false" maxlength="80" placeholder="cth. Muhammad Ilham Fauzi">
+          <div class="err" id="eNama"></div>
+        </div>
+
         <div class="field" id="fSatker">
           <label for="satker">Satuan kerja <span class="hint">BPS provinsi/kabupaten/kota</span></label>
           <select class="select" id="satker" name="satker" required>
             <option value="" disabled selected>Pilih satuan kerja…</option>
           </select>
           <div class="err" id="eSatker"></div>
+        </div>
+
         </div>
 
         <button class="btn btn-primary btn-block" id="kirim" type="submit">
@@ -121,11 +145,11 @@
     <div class="foot">© <span id="th"></span> BPS Provinsi Sulawesi Utara</div>
   </main>
 
-  <script src="vendor/qrcode.js?v=2026.10.10-3"></script>
-  <script src="vendor/qrcode_UTF8.js?v=2026.10.10-3"></script>
-  <script src="vendor/supabase.js?v=2026.10.10-3"></script>
-  <script src="js/config.js?v=2026.10.10-3"></script>
-  <script src="js/shared.js?v=2026.10.10-3"></script>
-  <script src="js/presensi.js?v=2026.10.10-3"></script>
+  <script src="vendor/qrcode.js?v=2026.10.10-4"></script>
+  <script src="vendor/qrcode_UTF8.js?v=2026.10.10-4"></script>
+  <script src="vendor/supabase.js?v=2026.10.10-4"></script>
+  <script src="js/config.js?v=2026.10.10-4"></script>
+  <script src="js/shared.js?v=2026.10.10-4"></script>
+  <script src="js/presensi.js?v=2026.10.10-4"></script>
 </body>
 </html>

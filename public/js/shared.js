@@ -1,7 +1,7 @@
 /* Shared: konstanta, validasi, identitas perangkat, backend (Supabase / demo), ekspor XLSX */
 (function () {
   'use strict';
-  const VERSI = '2026.10.10-3';
+  const VERSI = '2026.10.10-4';
   function peringatanVersi(detail) {
     const tampil = () => {
       if (document.getElementById('versiSalah')) return;
@@ -36,6 +36,8 @@
     KATEGORI_KOSONG: 'Pilih kategori: Pegawai, Magang, atau Outsourcing.',
     SATKER_KOSONG: 'Pilih satuan kerja Anda.',
     GAGAL_MEMBUAT_KODE: 'Gagal membuat kode unik. Silakan coba lagi.',
+    PEGAWAI_TIDAK_DIKENAL: 'Nama tidak ada di daftar pegawai. Pilih nama dari daftar, atau hubungi panitia.',
+    PEGAWAI_BELUM_DIPILIH: 'Ketik nama Anda lalu pilih dari daftar pegawai.',
     PERMINTAAN_DITOLAK: 'Permintaan presensi dari perangkat ini ditolak panitia. Silakan hubungi panitia.',
     PERMINTAAN_TIDAK_VALID: 'Permintaan ini sudah diputuskan sebelumnya.',
     BUKAN_ADMIN: 'Akun ini bukan admin.',
@@ -171,7 +173,7 @@
   function supabaseBackend() {
     if (KUNCI_RAHASIA) {
       const gagal = async () => { throw new Error('KUNCI_SALAH'); };
-      return { demo: false, daftar: gagal, statusPerangkat: gagal, permintaan: gagal, putuskan: gagal, tiketPerangkat: gagal, sesiAdmin: gagal, login: gagal, logout: async () => {}, ambilAcak: gagal, ambilAcakN: gagal, aturUndian: gagal, semuaPresensi: gagal, riwayat: gagal };
+      return { demo: false, daftar: gagal, daftarPegawai: gagal, statusPerangkat: gagal, permintaan: gagal, putuskan: gagal, tiketPerangkat: gagal, sesiAdmin: gagal, login: gagal, logout: async () => {}, ambilAcak: gagal, ambilAcakN: gagal, aturUndian: gagal, semuaPresensi: gagal, riwayat: gagal };
     }
     const sb = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY, {
       auth: { persistSession: true, storageKey: 'presensi_bps_sulut_admin' },
@@ -186,6 +188,7 @@
         }));
       },
       async statusPerangkat(device) { return satu(await sb.rpc('status_perangkat', { p_device: device })); },
+      async daftarPegawai() { const r = await sb.rpc('daftar_pegawai'); if (r.error) throw r.error; return r.data || []; },
       async permintaan() { const r = await sb.rpc('daftar_permintaan'); if (r.error) throw r.error; return r.data || []; },
       async putuskan(id, izinkan) { const r = await sb.rpc('putuskan_permintaan', { p_id: id, p_izinkan: izinkan }); if (r.error) throw r.error; },
       async tiketPerangkat(device) { return satu(await sb.rpc('presensi_perangkat', { p_device: device })); },
@@ -236,10 +239,17 @@
     const pub = (x) => x && ({ nama: x.nama, kategori: x.kategori, satker: x.satker, kode: x.kode, created_at: x.created_at });
     let admin = sessionStorage.getItem('demo_admin');
     function tambah(db, d, lewatiCek) {
-      const e = validasiNama(d.nama); if (e) throw new Error(e);
       if (!KATEGORI.includes(d.kategori)) throw new Error('KATEGORI_KOSONG');
-      if (!SATKER.includes(d.satker)) throw new Error('SATKER_KOSONG');
-      const nama = rapikanNama(d.nama);
+      let nama;
+      if (d.kategori === 'Pegawai') {
+        const pg = PEGAWAI_DEMO.find((x) => x.nama.toLowerCase() === String(d.nama || '').trim().replace(/\s+/g, ' ').toLowerCase());
+        if (!pg) throw new Error('PEGAWAI_TIDAK_DIKENAL');
+        nama = pg.nama; d = Object.assign({}, d, { satker: pg.satker });
+      } else {
+        const e = validasiNama(d.nama); if (e) throw new Error(e);
+        if (!SATKER.includes(d.satker)) throw new Error('SATKER_KOSONG');
+        nama = rapikanNama(d.nama);
+      }
       if (db.p.some((x) => x.device_id === d.device)) throw new Error('PERANGKAT_SUDAH_ABSEN');
       if (!lewatiCek) {
         const q = db.q.find((x) => x.device_id === d.device);
@@ -265,6 +275,12 @@
       return row;
     }
     const wajibAdmin = () => { if (!admin) throw new Error('BUKAN_ADMIN'); };
+    const PEGAWAI_DEMO = [
+      ['Andi Pratama Lumowa, S.Tr.Stat.', 'Provinsi Sulawesi Utara'], ['Rina Kartika Sari, SST, M.Si.', 'Provinsi Sulawesi Utara'],
+      ['Johan Rondonuwu, SE', 'Manado'], ['Meiske Tumbelaka, S.Stat.', 'Manado'], ['Fadli Mokodompit, S.Tr.Stat.', 'Kotamobagu'],
+      ['Grace Wenas, A.Md.Stat.', 'Tomohon'], ['Steven Pangemanan, S.Si', 'Bitung'], ['Nurul Mamonto, S.Tr.Stat.', 'Bolaang Mongondow'],
+      ['Yohanis Kalalo', 'Sangihe'], ['Fitri Manoppo, SST', 'Talaud'], ['Hendra Rumengan, S.Kom', 'Minahasa'], ['Debby Gobel, S.Tr.Stat.', 'Sitaro'],
+    ].map(([nama, satker]) => ({ nama, satker }));
     return {
       demo: true,
       async daftar(d) {
@@ -279,6 +295,7 @@
         return q ? { status: q.status, nama: q.nama, kategori: q.kategori, satker: q.satker, kode: null, created_at: q.created_at, permintaan_id: q.id } : null;
       },
       async tiketPerangkat(device) { return pub(load().p.find((x) => x.device_id === device)); },
+      async daftarPegawai() { return PEGAWAI_DEMO.slice(); },
       async permintaan() {
         wajibAdmin(); const db = load();
         return db.q.filter((q) => q.status === 'menunggu').map((q) => {
@@ -352,7 +369,7 @@
           try {
             tambah(db, {
               nama: depan[Math.floor(Math.random() * depan.length)] + ' ' + belakang[Math.floor(Math.random() * belakang.length)],
-              kategori: KATEGORI[Math.floor(Math.random() * 3)], satker: SATKER[Math.floor(Math.random() * SATKER.length)], device: uuid(),
+              kategori: KATEGORI[1 + Math.floor(Math.random() * 2)], satker: SATKER[Math.floor(Math.random() * SATKER.length)], device: uuid(),
             });
             ok++;
           } catch (e) { /* duplikat, coba lagi */ }
