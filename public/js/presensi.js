@@ -1,8 +1,8 @@
 (function () {
   'use strict';
-  if (!window.App || window.App.VERSI !== '2026.10.10-4') {
+  if (!window.App || window.App.VERSI !== '2026.10.10-5') {
     const v = window.App && window.App.VERSI;
-    if (window.App && window.App.peringatanVersi) window.App.peringatanVersi('presensi.js 2026.10.10-4 ≠ shared.js ' + v);
+    if (window.App && window.App.peringatanVersi) window.App.peringatanVersi('presensi.js 2026.10.10-5 ≠ shared.js ' + v);
     else document.addEventListener('DOMContentLoaded', () => { document.body.insertAdjacentHTML('afterbegin', '<div style="position:fixed;top:0;left:0;right:0;z-index:9999;background:#b4161c;color:#fff;padding:12px;text-align:center;font:600 14px system-ui">File situs tidak sinkron (shared.js lama). Unggah ulang seluruh folder public.</div>'); });
     if (!window.App || !window.App.VERSI) return;
   }
@@ -48,103 +48,54 @@
   $('nama').addEventListener('input', () => { if ($('fNama').classList.contains('invalid')) cekNama(true); });
   document.querySelectorAll('input[name="kategori"]').forEach((r) => r.addEventListener('change', () => { setErr('fKategori', 'eKategori', ''); aturKategori(); }));
 
-  // ---------- Pegawai: pilih dari daftar ----------
+  // ---------- Pegawai: pilih satker, lalu pilih nama ----------
   let PEGAWAI = null;        // [{nama, satker}]
-  let PEGAWAI_GAGAL = false;
   let PILIH = null;          // pegawai terpilih
-  let aktif = -1;            // indeks saran yang disorot
-  let HASIL_CARI = [];
-  const norm = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/['\u2019`]/g, '').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const selSatPeg = $('satkerPeg'), selNamaPeg = $('namaPeg');
+  // urutkan nama tanpa gelar depan (Dr., Ir., Drs., H., Hj., dst.)
+  const kunciUrut = (n) => n.replace(/^((dr|drs|dra|ir|h|hj|prof)\.?\s+)+/i, '').toLowerCase();
 
   async function muatPegawai() {
     if (PEGAWAI) return PEGAWAI;
-    try {
-      const rows = await api.daftarPegawai();
-      PEGAWAI = rows.map((r) => {
-        const inti = r.nama.split(',')[0];                // nama tanpa gelar belakang
-        return { nama: r.nama, satker: r.satker, n: norm(inti), nAll: norm(r.nama + ' ' + r.satker) };
-      });
-      PEGAWAI_GAGAL = false;
-    } catch (err) { PEGAWAI_GAGAL = true; PEGAWAI = null; }
+    try { PEGAWAI = await api.daftarPegawai(); }
+    catch (err) { PEGAWAI = null; }
     return PEGAWAI;
   }
+  function isiSatkerPeg() {
+    if (selSatPeg.options.length > 1) return;
+    SATKER.forEach((x) => { const o = document.createElement('option'); o.value = x; o.textContent = x; selSatPeg.appendChild(o); });
+  }
+  async function isiNamaPeg() {
+    PILIH = null;
+    const sat = selSatPeg.value;
+    selNamaPeg.innerHTML = '<option value="" disabled selected>Pilih nama…</option>';
+    selNamaPeg.disabled = true;
+    setErr('fSatkerPeg', 'eSatkerPeg', ''); setErr('fNamaPeg', 'ePegawai', '');
+    if (!sat) { $('namaPegHint').textContent = 'pilih satuan kerja dulu'; return; }
+    $('namaPegHint').textContent = 'memuat daftar…';
+    const data = await muatPegawai();
+    if (selSatPeg.value !== sat) return;                       // satker sudah diganti
+    if (!data) { $('namaPegHint').textContent = ''; setErr('fNamaPeg', 'ePegawai', 'Daftar pegawai gagal dimuat. Periksa internet lalu pilih satker lagi.'); return; }
+    const daftar = data.filter((x) => x.satker === sat).sort((x, y) => kunciUrut(x.nama).localeCompare(kunciUrut(y.nama), 'id'));
+    daftar.forEach((x, i) => { const o = document.createElement('option'); o.value = String(i); o.textContent = x.nama; selNamaPeg.appendChild(o); });
+    selNamaPeg._daftar = daftar;
+    selNamaPeg.disabled = daftar.length === 0;
+    $('namaPegHint').textContent = daftar.length ? `${daftar.length} pegawai` : 'belum ada data';
+  }
+  selSatPeg.addEventListener('change', isiNamaPeg);
+  selNamaPeg.addEventListener('change', () => {
+    const d = selNamaPeg._daftar || [];
+    PILIH = d[Number(selNamaPeg.value)] || null;
+    setErr('fNamaPeg', 'ePegawai', '');
+  });
 
   function aturKategori() {
     const kat = kategoriTerpilih();
     $('pilihDulu').hidden = !!kat;
     $('fPegawai').hidden = kat !== 'Pegawai';
     $('grupUmum').hidden = !kat || kat === 'Pegawai';
-    if (kat === 'Pegawai') { muatPegawai(); if (!PILIH) setTimeout(() => $('cariPegawai').focus(), 50); }
+    if (kat === 'Pegawai') { isiSatkerPeg(); muatPegawai(); }
   }
-
-  function sorot(teks, q) {
-    const esc = window.App.esc;
-    if (!q) return esc(teks);
-    let out = esc(teks);
-    q.split(' ').filter((x) => x.length > 1).forEach((k) => {
-      const re = new RegExp('(' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'ig');
-      out = out.replace(re, '<mark>$1</mark>');
-    });
-    return out;
-  }
-
-  async function cari() {
-    const qRaw = $('cariPegawai').value;
-    const q = norm(qRaw);
-    const ul = $('saranPegawai');
-    setErr('fPegawai', 'ePegawai', '');
-    if (q.length < 2) { ul.hidden = true; $('cariPegawai').setAttribute('aria-expanded', 'false'); return; }
-    const data = await muatPegawai();
-    if (!data) { ul.innerHTML = '<li class="kosong">Daftar pegawai gagal dimuat. Periksa internet lalu coba lagi.</li>'; ul.hidden = false; return; }
-    if (norm($('cariPegawai').value) !== q) return;      // input sudah berubah
-    const kata = q.split(' ');
-    HASIL_CARI = data.filter((p) => kata.every((k) => p.nAll.includes(k)))
-      .map((p) => ({ p, skor: (p.n.startsWith(q) ? 0 : p.n.split(' ').some((w) => w.startsWith(kata[0])) ? 1 : 2) }))
-      .sort((a, b) => a.skor - b.skor || a.p.nama.localeCompare(b.p.nama, 'id'))
-      .slice(0, 8).map((x) => x.p);
-    aktif = HASIL_CARI.length ? 0 : -1;
-    ul.innerHTML = HASIL_CARI.length
-      ? HASIL_CARI.map((p, i) => `<li role="option" id="opsi${i}" data-i="${i}" aria-selected="${i === aktif}"><b>${sorot(p.nama, q)}</b><span>BPS ${window.App.esc(p.satker)}</span></li>`).join('')
-      : '<li class="kosong">Nama tidak ditemukan. Coba ketik nama depan saja, atau hubungi panitia.</li>';
-    ul.hidden = false;
-    $('cariPegawai').setAttribute('aria-expanded', 'true');
-    $('cariPegawai').setAttribute('aria-activedescendant', aktif >= 0 ? 'opsi' + aktif : '');
-  }
-  function geserSorot(d) {
-    if (!HASIL_CARI.length) return;
-    aktif = (aktif + d + HASIL_CARI.length) % HASIL_CARI.length;
-    $('saranPegawai').querySelectorAll('li[role="option"]').forEach((li, i) => li.setAttribute('aria-selected', String(i === aktif)));
-    const el = $('opsi' + aktif); if (el) el.scrollIntoView({ block: 'nearest' });
-    $('cariPegawai').setAttribute('aria-activedescendant', 'opsi' + aktif);
-  }
-  function pilihPegawai(p) {
-    PILIH = p;
-    $('pNama').textContent = p.nama;
-    $('pSatker').textContent = 'BPS ' + p.satker;
-    $('comboPegawai').hidden = true; $('saranPegawai').hidden = true;
-    $('pilihPegawai').hidden = false; $('pegawaiInfo').hidden = true;
-    setErr('fPegawai', 'ePegawai', '');
-  }
-  function gantiPegawai() {
-    PILIH = null;
-    $('pilihPegawai').hidden = true; $('comboPegawai').hidden = false; $('pegawaiInfo').hidden = false;
-    $('cariPegawai').value = ''; $('cariPegawai').focus();
-  }
-  let tCari = null;
-  $('cariPegawai').addEventListener('input', () => { clearTimeout(tCari); tCari = setTimeout(cari, 120); });
-  $('cariPegawai').addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowDown') { e.preventDefault(); geserSorot(1); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); geserSorot(-1); }
-    else if (e.key === 'Enter') { e.preventDefault(); if (aktif >= 0 && HASIL_CARI[aktif] && !$('saranPegawai').hidden) pilihPegawai(HASIL_CARI[aktif]); }
-    else if (e.key === 'Escape') { $('saranPegawai').hidden = true; }
-  });
-  $('saranPegawai').addEventListener('mousedown', (e) => {
-    const li = e.target.closest('li[data-i]'); if (!li) return;
-    e.preventDefault(); pilihPegawai(HASIL_CARI[Number(li.dataset.i)]);
-  });
-  $('cariPegawai').addEventListener('blur', () => setTimeout(() => { $('saranPegawai').hidden = true; $('cariPegawai').setAttribute('aria-expanded', 'false'); }, 150));
-  $('cariPegawai').addEventListener('focus', () => { if (norm($('cariPegawai').value).length >= 2) cari(); });
-  $('gantiPegawai').addEventListener('click', gantiPegawai);
   sel.addEventListener('change', () => setErr('fSatker', 'eSatker', ''));
 
   $('form').addEventListener('submit', async (e) => {
@@ -155,7 +106,8 @@
     if (!kat) { $('fKategori').scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
     let namaKirim, sat, namaTampil;
     if (kat === 'Pegawai') {
-      if (!PILIH) { setErr('fPegawai', 'ePegawai', PESAN.PEGAWAI_BELUM_DIPILIH); $('cariPegawai').focus(); return; }
+      if (!selSatPeg.value) { setErr('fSatkerPeg', 'eSatkerPeg', PESAN.SATKER_KOSONG); selSatPeg.focus(); return; }
+      if (!PILIH) { setErr('fNamaPeg', 'ePegawai', PESAN.PEGAWAI_BELUM_DIPILIH); selNamaPeg.focus(); return; }
       namaKirim = PILIH.nama; sat = PILIH.satker; namaTampil = PILIH.nama;
     } else {
       const okNama = cekNama(true);
@@ -186,7 +138,7 @@
       }
       if (k === 'PERMINTAAN_DITOLAK') { renderTunggu({ status: 'ditolak' }); return; }
       if (kat === 'Pegawai' && (k === 'NAMA_SUDAH_TERDAFTAR' || k === 'PEGAWAI_TIDAK_DIKENAL')) {
-        setErr('fPegawai', 'ePegawai', PESAN[k]);
+        setErr('fNamaPeg', 'ePegawai', PESAN[k]);
       } else if (k === 'NAMA_SUDAH_TERDAFTAR' || k === 'NAMA_TIDAK_LENGKAP' || k === 'NAMA_TIDAK_VALID') {
         setErr('fNama', 'eNama', PESAN[k]); $('nama').focus();
       } else {

@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
   <meta charset="utf-8">
-  <meta name="app-versi" content="2026.10.10-4">
+  <meta name="app-versi" content="2026.10.10-5">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0b2d57">
   <title>Presensi — BPS Sulawesi Utara</title>
@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=2026.10.10-4">
+  <link rel="stylesheet" href="css/style.css?v=2026.10.10-5">
 </head>
 <body>
   <div class="backdrop" aria-hidden="true"><div class="bars"><i></i><i></i><i></i></div></div>
@@ -37,33 +37,32 @@
           <div class="seg" role="radiogroup" aria-labelledby="lKategori">
             <input type="radio" name="kategori" id="k1" value="Pegawai">
             <label for="k1"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/></svg>Pegawai</label>
-            <input type="radio" name="kategori" id="k2" value="Magang">
-            <label for="k2"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/></svg>Magang</label>
             <input type="radio" name="kategori" id="k3" value="Outsourcing">
             <label for="k3"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/></svg>Outsourcing</label>
+            <input type="radio" name="kategori" id="k2" value="Magang">
+            <label for="k2"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/></svg>Magang</label>
           </div>
           <div class="err" id="eKategori"></div>
         </div>
 
         <p class="pilih-dulu" id="pilihDulu">Pilih kategori terlebih dahulu.</p>
 
-        <div class="field" id="fPegawai" hidden>
-          <label for="cariPegawai">Nama pegawai <span class="hint">ketik lalu pilih dari daftar</span></label>
-          <div class="combo" id="comboPegawai">
-            <svg class="combo-ikon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-            <input class="input" id="cariPegawai" type="search" autocomplete="off" spellcheck="false" placeholder="Ketik nama Anda, cth. ilham"
-              role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="saranPegawai">
-            <ul class="saran" id="saranPegawai" role="listbox" hidden></ul>
+        <div id="fPegawai" hidden>
+          <div class="field" id="fSatkerPeg">
+            <label for="satkerPeg">Satuan kerja <span class="hint">BPS provinsi/kabupaten/kota</span></label>
+            <select class="select" id="satkerPeg" required>
+              <option value="" disabled selected>Pilih satuan kerja…</option>
+            </select>
+            <div class="err" id="eSatkerPeg"></div>
           </div>
-          <div class="pilihan" id="pilihPegawai" hidden>
-            <div class="pilihan-isi">
-              <div class="pilihan-nama" id="pNama"></div>
-              <span class="chip blue" id="pSatker"></span>
-            </div>
-            <button type="button" class="link" id="gantiPegawai">Ganti</button>
+          <div class="field" id="fNamaPeg">
+            <label for="namaPeg">Nama <span class="hint" id="namaPegHint">pilih satuan kerja dulu</span></label>
+            <select class="select" id="namaPeg" required disabled>
+              <option value="" disabled selected>Pilih nama…</option>
+            </select>
+            <div class="err" id="ePegawai"></div>
+            <div class="form-sub">Nama tidak ada di daftar? Hubungi panitia.</div>
           </div>
-          <div class="err" id="ePegawai"></div>
-          <div class="form-sub" id="pegawaiInfo">Nama tidak ditemukan? Hubungi panitia.</div>
         </div>
 
         <div id="grupUmum" hidden>
@@ -145,11 +144,11 @@
     <div class="foot">© <span id="th"></span> BPS Provinsi Sulawesi Utara</div>
   </main>
 
-  <script src="vendor/qrcode.js?v=2026.10.10-4"></script>
-  <script src="vendor/qrcode_UTF8.js?v=2026.10.10-4"></script>
-  <script src="vendor/supabase.js?v=2026.10.10-4"></script>
-  <script src="js/config.js?v=2026.10.10-4"></script>
-  <script src="js/shared.js?v=2026.10.10-4"></script>
-  <script src="js/presensi.js?v=2026.10.10-4"></script>
+  <script src="vendor/qrcode.js?v=2026.10.10-5"></script>
+  <script src="vendor/qrcode_UTF8.js?v=2026.10.10-5"></script>
+  <script src="vendor/supabase.js?v=2026.10.10-5"></script>
+  <script src="js/config.js?v=2026.10.10-5"></script>
+  <script src="js/shared.js?v=2026.10.10-5"></script>
+  <script src="js/presensi.js?v=2026.10.10-5"></script>
 </body>
 </html>

@@ -1,8 +1,8 @@
 (function () {
   'use strict';
-  if (!window.App || window.App.VERSI !== '2026.10.10-4') {
+  if (!window.App || window.App.VERSI !== '2026.10.10-5') {
     const v = window.App && window.App.VERSI;
-    if (window.App && window.App.peringatanVersi) window.App.peringatanVersi('random.js 2026.10.10-4 ≠ shared.js ' + v);
+    if (window.App && window.App.peringatanVersi) window.App.peringatanVersi('random.js 2026.10.10-5 ≠ shared.js ' + v);
     else document.addEventListener('DOMContentLoaded', () => { document.body.insertAdjacentHTML('afterbegin', '<div style="position:fixed;top:0;left:0;right:0;z-index:9999;background:#b4161c;color:#fff;padding:12px;text-align:center;font:600 14px system-ui">File situs tidak sinkron (shared.js lama). Unggah ulang seluruh folder public.</div>'); });
     if (!window.App || !window.App.VERSI) return;
   }

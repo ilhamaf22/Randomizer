@@ -1,7 +1,7 @@
 /* Shared: konstanta, validasi, identitas perangkat, backend (Supabase / demo), ekspor XLSX */
 (function () {
   'use strict';
-  const VERSI = '2026.10.10-4';
+  const VERSI = '2026.10.10-5';
   function peringatanVersi(detail) {
     const tampil = () => {
       if (document.getElementById('versiSalah')) return;
@@ -36,8 +36,8 @@
     KATEGORI_KOSONG: 'Pilih kategori: Pegawai, Magang, atau Outsourcing.',
     SATKER_KOSONG: 'Pilih satuan kerja Anda.',
     GAGAL_MEMBUAT_KODE: 'Gagal membuat kode unik. Silakan coba lagi.',
-    PEGAWAI_TIDAK_DIKENAL: 'Nama tidak ada di daftar pegawai. Pilih nama dari daftar, atau hubungi panitia.',
-    PEGAWAI_BELUM_DIPILIH: 'Ketik nama Anda lalu pilih dari daftar pegawai.',
+    PEGAWAI_TIDAK_DIKENAL: 'Nama tidak ada di daftar pegawai. Hubungi panitia.',
+    PEGAWAI_BELUM_DIPILIH: 'Pilih nama Anda dari daftar.',
     PERMINTAAN_DITOLAK: 'Permintaan presensi dari perangkat ini ditolak panitia. Silakan hubungi panitia.',
     PERMINTAAN_TIDAK_VALID: 'Permintaan ini sudah diputuskan sebelumnya.',
     BUKAN_ADMIN: 'Akun ini bukan admin.',
