@@ -2,6 +2,7 @@
 <html lang="id">
 <head>
   <meta charset="utf-8">
+  <meta name="app-versi" content="2026.10.10-3">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0b2d57">
   <title>Presensi — BPS Sulawesi Utara</title>
@@ -9,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=2026.10.10-3">
 </head>
 <body>
   <div class="backdrop" aria-hidden="true"><div class="bars"><i></i><i></i><i></i></div></div>
@@ -97,16 +98,34 @@
       <p class="keep">Simpan atau tangkap layar tiket ini. Kode undian dipakai saat pengundian doorprize.</p>
     </section>
 
+    <!-- MENUNGGU IZIN -->
+    <section id="viewTunggu" hidden>
+      <article class="card tunggu" aria-live="polite">
+        <div class="t-ikon" aria-hidden="true">
+          <svg class="i-tunggu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/><path d="M9.5 8.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5"/></svg>
+          <svg class="i-tolak" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6M15 9l-6 6"/></svg>
+        </div>
+        <h2 id="wJudul">Perlu konfirmasi panitia</h2>
+        <p id="wTeks"></p>
+        <div class="w-no" id="wNoWrap"><span>No. permintaan</span><b id="wNo"></b></div>
+        <div class="w-data" id="wData">
+          <div class="w-nama" id="wNama"></div>
+          <div class="chips"><span class="chip blue" id="wSatker"></span><span class="chip green" id="wKategori"></span></div>
+        </div>
+        <button class="btn btn-ghost btn-block" id="wCek" type="button"><span class="spin"></span> Menunggu persetujuan… cek sekarang</button>
+      </article>
+    </section>
+
     <section id="viewLoading" style="text-align:center;color:rgba(255,255,255,.7);padding:40px 0"><span class="spin" style="display:inline-block"></span></section>
 
     <div class="foot">© <span id="th"></span> BPS Provinsi Sulawesi Utara</div>
   </main>
 
-  <script src="vendor/qrcode.js"></script>
-  <script src="vendor/qrcode_UTF8.js"></script>
-  <script src="vendor/supabase.js"></script>
-  <script src="js/config.js"></script>
-  <script src="js/shared.js"></script>
-  <script src="js/presensi.js"></script>
+  <script src="vendor/qrcode.js?v=2026.10.10-3"></script>
+  <script src="vendor/qrcode_UTF8.js?v=2026.10.10-3"></script>
+  <script src="vendor/supabase.js?v=2026.10.10-3"></script>
+  <script src="js/config.js?v=2026.10.10-3"></script>
+  <script src="js/shared.js?v=2026.10.10-3"></script>
+  <script src="js/presensi.js?v=2026.10.10-3"></script>
 </body>
 </html>

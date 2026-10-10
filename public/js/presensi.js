@@ -1,6 +1,12 @@
 (function () {
   'use strict';
-  const { api, CFG, SATKER, DEMO, validasiNama, pesanError, kodeError, PESAN, rapikanNama, getDeviceId, sidikPerangkat, waktu, isiQR, unduhBlob, toast } = window.App;
+  if (!window.App || window.App.VERSI !== '2026.10.10-3') {
+    const v = window.App && window.App.VERSI;
+    if (window.App && window.App.peringatanVersi) window.App.peringatanVersi('presensi.js 2026.10.10-3 ≠ shared.js ' + v);
+    else document.addEventListener('DOMContentLoaded', () => { document.body.insertAdjacentHTML('afterbegin', '<div style="position:fixed;top:0;left:0;right:0;z-index:9999;background:#b4161c;color:#fff;padding:12px;text-align:center;font:600 14px system-ui">File situs tidak sinkron (shared.js lama). Unggah ulang seluruh folder public.</div>'); });
+    if (!window.App || !window.App.VERSI) return;
+  }
+  const { api, CFG, SATKER, DEMO, validasiNama, pesanError, kodeError, PESAN, rapikanNama, getDeviceId, sidikPerangkat, sidikHardware, waktu, isiQR, unduhBlob, toast } = window.App;
   const $ = (id) => document.getElementById(id);
   let DEVICE = null;
   let TIKET = null;
@@ -23,7 +29,7 @@
   SATKER.forEach((s) => { const o = document.createElement('option'); o.value = s; o.textContent = s; sel.appendChild(o); });
 
   function tampil(view) {
-    ['viewForm', 'viewTiket', 'viewLoading'].forEach((v) => { $(v).hidden = v !== view; });
+    ['viewForm', 'viewTiket', 'viewTunggu', 'viewLoading'].forEach((v) => { $(v).hidden = v !== view; });
   }
 
   // ---------- validasi ----------
@@ -62,17 +68,19 @@
     const isi = btn.innerHTML;
     btn.innerHTML = '<span class="spin"></span><span>Mengirim…</span>';
     try {
-      const fp = await sidikPerangkat();
-      const t = await api.daftar({ nama: $('nama').value, kategori: kat, satker: sat, device: DEVICE, fingerprint: fp });
+      const [fp, hw] = await Promise.all([sidikPerangkat(), sidikHardware()]);
+      const t = await api.daftar({ nama: $('nama').value, kategori: kat, satker: sat, device: DEVICE, fingerprint: fp, sidikHw: hw });
+      if (t && t.status === 'menunggu') { renderTunggu(t); return; }
       TIKET = t;
       renderTiket(t);
       toast('Presensi berhasil dicatat.', 'ok');
     } catch (err) {
       const k = kodeError(err);
       if (k === 'PERANGKAT_SUDAH_ABSEN') {
-        const t = await api.tiketPerangkat(DEVICE).catch(() => null);
-        if (t) { TIKET = t; renderTiket(t); toast(PESAN.PERANGKAT_SUDAH_ABSEN, 'warn'); return; }
+        const t = await api.statusPerangkat(DEVICE).catch(() => null);
+        if (t && t.status === 'ok') { TIKET = t; renderTiket(t); toast(PESAN.PERANGKAT_SUDAH_ABSEN, 'warn'); return; }
       }
+      if (k === 'PERMINTAAN_DITOLAK') { renderTunggu({ status: 'ditolak' }); return; }
       if (k === 'NAMA_SUDAH_TERDAFTAR' || k === 'NAMA_TIDAK_LENGKAP' || k === 'NAMA_TIDAK_VALID') {
         setErr('fNama', 'eNama', PESAN[k]); $('nama').focus();
       } else {
@@ -84,6 +92,36 @@
       btn.innerHTML = isi;
     }
   });
+
+  // ---------- Menunggu izin panitia ----------
+  let pollTunggu = null;
+  function renderTunggu(t) {
+    clearInterval(pollTunggu);
+    const ditolak = t.status === 'ditolak';
+    $('viewTunggu').classList.toggle('ditolak', ditolak);
+    $('wJudul').textContent = ditolak ? 'Permintaan ditolak' : 'Perlu konfirmasi panitia';
+    $('wTeks').textContent = ditolak
+      ? 'Panitia menolak presensi dari perangkat ini karena perangkat ini sudah dipakai presensi. Jika menurut Anda ini keliru, temui panitia.'
+      : 'Perangkat ini terdeteksi sama dengan perangkat yang sudah dipakai presensi. Jika Anda belum presensi, tunjukkan layar ini ke panitia. Tiket akan muncul otomatis setelah disetujui.';
+    $('wNo').textContent = t.permintaan_id ? '#' + t.permintaan_id : '';
+    $('wNoWrap').hidden = !t.permintaan_id || ditolak;
+    $('wNama').textContent = t.nama || '';
+    $('wSatker').textContent = t.satker ? 'BPS ' + t.satker : '';
+    $('wKategori').textContent = t.kategori || '';
+    $('wData').hidden = !t.nama;
+    $('wCek').hidden = ditolak;
+    tampil('viewTunggu');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (!ditolak) pollTunggu = setInterval(cekTunggu, 5000);
+  }
+  async function cekTunggu() {
+    try {
+      const t = await api.statusPerangkat(DEVICE);
+      if (t && t.status === 'ok') { clearInterval(pollTunggu); TIKET = t; renderTiket(t); toast('Disetujui panitia. Presensi tercatat.', 'ok'); }
+      else if (t && t.status === 'ditolak') renderTunggu(t);
+    } catch (e) { /* coba lagi di putaran berikutnya */ }
+  }
+  $('wCek').addEventListener('click', cekTunggu);
 
   // ---------- QR ----------
   function buatQR(teks) {
@@ -209,8 +247,9 @@
   (async function init() {
     try {
       DEVICE = await getDeviceId();
-      const t = await api.tiketPerangkat(DEVICE);
-      if (t) { TIKET = t; renderTiket(t); return; }
+      const t = await api.statusPerangkat(DEVICE);
+      if (t && t.status === 'ok') { TIKET = t; renderTiket(t); return; }
+      if (t && (t.status === 'menunggu' || t.status === 'ditolak')) { renderTunggu(t); return; }
     } catch (err) {
       console.error(err);
       if (kodeError(err) === 'JARINGAN') toast(PESAN.JARINGAN, 'err');

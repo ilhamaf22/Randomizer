@@ -1,5 +1,11 @@
 (function () {
   'use strict';
+  if (!window.App || window.App.VERSI !== '2026.10.10-3') {
+    const v = window.App && window.App.VERSI;
+    if (window.App && window.App.peringatanVersi) window.App.peringatanVersi('random.js 2026.10.10-3 ≠ shared.js ' + v);
+    else document.addEventListener('DOMContentLoaded', () => { document.body.insertAdjacentHTML('afterbegin', '<div style="position:fixed;top:0;left:0;right:0;z-index:9999;background:#b4161c;color:#fff;padding:12px;text-align:center;font:600 14px system-ui">File situs tidak sinkron (shared.js lama). Unggah ulang seluruh folder public.</div>'); });
+    if (!window.App || !window.App.VERSI) return;
+  }
   const { api, CFG, DEMO, pesanError, kodeError, PESAN, waktu, esc, unduhXlsx, toast } = window.App;
   const $ = (id) => document.getElementById(id);
 
@@ -33,14 +39,62 @@
     tampil('stage');
     await muat();
     setInterval(() => { if (!SIBUK && $('reveal').hidden) muat(true); }, 15000);
+    setInterval(muatIzin, 8000);
   }
 
   // ---------------- Data ----------------
+  // ---------------- Izin perangkat ----------------
+  let IZIN = [];
+  let izinSebelumnya = 0;
+  async function muatIzin() {
+    try {
+      IZIN = await api.permintaan();
+      const n = IZIN.length;
+      $('izinBadge').hidden = n === 0; $('izinBadge').textContent = n;
+      $('bIzin').classList.toggle('ada', n > 0);
+      if (n > izinSebelumnya) toast(`Ada ${n} permintaan izin perangkat. Klik tombol Izin.`, 'warn');
+      izinSebelumnya = n;
+      if (!$('sheetIzin').hidden) renderIzin();
+    } catch (err) { /* diam; dicoba lagi */ }
+  }
+  function renderIzin() {
+    $('izinList').innerHTML = IZIN.length ? IZIN.map((r) => `
+      <div class="izin-item" data-id="${r.id}">
+        <div class="izin-top">
+          <span class="izin-no">#${esc(r.id)}</span>
+          <div><div class="izin-nama">${esc(r.nama)}</div>
+          <div class="izin-sub">${esc(r.kategori)} · BPS ${esc(r.satker)} · ${esc(waktu(r.created_at, { day: undefined, month: undefined, year: undefined }))}</div></div>
+        </div>
+        <div class="izin-bentrok">HP ini cirinya sama dengan perangkat <b>${esc(r.bentrok_nama || '—')}</b>${r.bentrok_satker ? ` (BPS ${esc(r.bentrok_satker)})` : ''}${r.bentrok_waktu ? `, absen ${esc(waktu(r.bentrok_waktu, { day: undefined, month: undefined, year: undefined }))}` : ''}.</div>
+        <div class="izin-aksi">
+          <button type="button" class="btn btn-ok" data-izin="1">Izinkan</button>
+          <button type="button" class="btn btn-danger" data-izin="0">Tolak</button>
+        </div>
+      </div>`).join('') : '<div class="izin-empty">Tidak ada permintaan.</div>';
+  }
+  $('bIzin').addEventListener('click', () => { $('sheetIzin').hidden = false; renderIzin(); muatIzin(); });
+  $('izinClose').addEventListener('click', () => { $('sheetIzin').hidden = true; });
+  $('sheetIzin').addEventListener('click', (e) => { if (e.target === $('sheetIzin')) $('sheetIzin').hidden = true; });
+  $('izinList').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-izin]'); if (!b) return;
+    const item = b.closest('.izin-item'); const id = Number(item.dataset.id);
+    const r = IZIN.find((x) => x.id === id); const izinkan = b.dataset.izin === '1';
+    if (!izinkan && !confirm(`Tolak permintaan ${r ? r.nama : ''}?\nPerangkat itu tidak akan bisa presensi.`)) return;
+    item.querySelectorAll('button').forEach((x) => { x.disabled = true; });
+    try {
+      await api.putuskan(id, izinkan);
+      toast(izinkan ? `${r ? r.nama : 'Peserta'} diizinkan dan tercatat hadir.` : 'Permintaan ditolak.', izinkan ? 'ok' : 'warn');
+      await Promise.all([muatIzin(), izinkan ? muat(true) : null]);
+      izinSebelumnya = IZIN.length;
+    } catch (err) { toast(pesanError(err), 'err'); item.querySelectorAll('button').forEach((x) => { x.disabled = false; }); muatIzin(); }
+  });
+
   async function muat(diam) {
     try {
       const [rows, riw] = await Promise.all([api.semuaPresensi(), api.riwayat()]);
       DATA = rows;
       renderStat(); renderSlips(); renderRiwayat(riw);
+      muatIzin();
       if (!$('sheet').hidden) renderTabel();
     } catch (err) {
       if (!diam) toast(pesanError(err), 'err');
@@ -371,18 +425,21 @@
     const el = document.activeElement;
     const typing = /INPUT|TEXTAREA|SELECT/.test(el && el.tagName);
     const diTombol = el && el.tagName === 'BUTTON';
-    if (e.key === 'Escape') { if (!$('reveal').hidden) tutupHasil(); else if (!$('sheet').hidden) tutupSheet(); return; }
+    if (e.key === 'Escape') { if (!$('reveal').hidden) tutupHasil(); else if (!$('sheetIzin').hidden) $('sheetIzin').hidden = true; else if (!$('sheet').hidden) tutupSheet(); return; }
     if (!$('reveal').hidden) {
       // Spasi = buka kotak berikutnya (kalau fokus sedang di kotak, spasi membuka kotak itu)
       if (e.code === 'Space' && !(diTombol && !el.classList.contains('open'))) { e.preventDefault(); bukaBerikutnya(); }
       return;
     }
-    if (typing || !$('sheet').hidden || $('viewStage').hidden) return;
+    if (typing || !$('sheet').hidden || !$('sheetIzin').hidden || $('viewStage').hidden) return;
     if ((e.code === 'Space' || e.key === 'Enter') && !(diTombol && !el.id.startsWith('bAmbil'))) { e.preventDefault(); ambil(1); }
     else if (e.key === '3') { e.preventDefault(); ambil(3); }
     else if (e.key === '5') { e.preventDefault(); ambil(5); }
   });
   if (DEMO) {
+    const bSim = document.createElement('button'); bSim.className = 'tbtn sm'; bSim.type = 'button'; bSim.textContent = 'Simulasi HP sama';
+    $('bReset').before(bSim);
+    bSim.addEventListener('click', async () => { try { await api.simulasiBrowserLain(); muatIzin(); } catch (e) { toast(e.message, 'err'); } });
     $('bContoh').addEventListener('click', async () => { const n = await api.isiContoh(30); toast(`${n} peserta contoh ditambahkan.`, 'ok'); muat(); });
     $('bReset').addEventListener('click', () => { if (confirm('Hapus semua data demo?')) { api.reset(); location.reload(); } });
   }

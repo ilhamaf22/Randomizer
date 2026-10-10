@@ -1,6 +1,22 @@
 /* Shared: konstanta, validasi, identitas perangkat, backend (Supabase / demo), ekspor XLSX */
 (function () {
   'use strict';
+  const VERSI = '2026.10.10-3';
+  function peringatanVersi(detail) {
+    const tampil = () => {
+      if (document.getElementById('versiSalah')) return;
+      const d = document.createElement('div'); d.id = 'versiSalah';
+      d.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#b4161c;color:#fff;font:600 14px/1.45 system-ui,sans-serif;padding:12px 16px;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.4)';
+      d.textContent = 'File situs tidak sinkron (' + detail + '). Unggah ulang SELURUH folder public, lalu muat ulang dengan Ctrl+Shift+R.';
+      document.body.appendChild(d);
+    };
+    if (document.body) tampil(); else document.addEventListener('DOMContentLoaded', tampil);
+  }
+  (function cekVersiHtml() {
+    const m = document.querySelector('meta[name="app-versi"]');
+    const vh = m ? m.content : 'tidak ada';
+    if (vh !== VERSI) peringatanVersi('halaman ' + vh + ' ≠ shared.js ' + VERSI);
+  })();
   const CFG = window.APP_CONFIG || {};
 
   const SATKER = [
@@ -13,13 +29,15 @@
   const PESAN = {
     NAMA_KOSONG: 'Nama wajib diisi.',
     NAMA_TIDAK_VALID: 'Nama hanya boleh berisi huruf, spasi, tanda petik (’) atau tanda hubung (-). Tanpa angka, titik, atau gelar.',
-    NAMA_TIDAK_LENGKAP: 'Tulis nama lengkap minimal 2 kata, tanpa singkatan (contoh: “Muhammad Ilham”, bukan “M. Ilham”).',
+    NAMA_TIDAK_LENGKAP: 'Tulis nama tanpa singkatan, tiap kata minimal 2 huruf (contoh: “Muhammad Ilham”, bukan “M. Ilham”).',
     NAMA_SUDAH_TERDAFTAR: 'Nama ini sudah melakukan presensi. Jika itu Anda, buka dari perangkat yang dipakai sebelumnya atau hubungi panitia.',
     PERANGKAT_SUDAH_ABSEN: 'Perangkat ini sudah dipakai untuk presensi. Satu perangkat hanya untuk satu nomor.',
     PERANGKAT_TIDAK_DIKENALI: 'Perangkat tidak dikenali. Aktifkan cookie/penyimpanan browser lalu muat ulang halaman.',
     KATEGORI_KOSONG: 'Pilih kategori: Pegawai, Magang, atau Outsourcing.',
     SATKER_KOSONG: 'Pilih satuan kerja Anda.',
     GAGAL_MEMBUAT_KODE: 'Gagal membuat kode unik. Silakan coba lagi.',
+    PERMINTAAN_DITOLAK: 'Permintaan presensi dari perangkat ini ditolak panitia. Silakan hubungi panitia.',
+    PERMINTAAN_TIDAK_VALID: 'Permintaan ini sudah diputuskan sebelumnya.',
     BUKAN_ADMIN: 'Akun ini bukan admin.',
     UNDIAN_KOSONG: 'Tidak ada lagi peserta di dalam undian.',
     JUMLAH_TIDAK_VALID: 'Jumlah pemenang tidak valid.',
@@ -55,7 +73,7 @@
     if (!n) return 'NAMA_KOSONG';
     if (!/^[\p{L}'\- ]+$/u.test(n)) return 'NAMA_TIDAK_VALID';
     const kata = n.split(' ');
-    if (kata.length < 2 || n.length > 80) return 'NAMA_TIDAK_LENGKAP';
+    if (n.length > 80) return 'NAMA_TIDAK_LENGKAP';
     if (kata.some((k) => k.replace(/[^\p{L}]/gu, '').length < 2)) return 'NAMA_TIDAK_LENGKAP';
     return null;
   }
@@ -113,6 +131,21 @@
     }
   }
 
+  // Ciri perangkat yang sama di semua browser pada HP/laptop yang sama
+  // (tidak memakai userAgent/bahasa karena itu berbeda tiap browser).
+  async function sidikHardware() {
+    const w = screen.width, h = screen.height;
+    const s = ['v2', Math.min(w, h), Math.max(w, h), Math.round((window.devicePixelRatio || 1) * 100), screen.colorDepth,
+      navigator.hardwareConcurrency || '', (Intl.DateTimeFormat().resolvedOptions().timeZone || '')].join('|');
+    try {
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+      return 'hw2-' + [...new Uint8Array(buf)].map((x) => x.toString(16).padStart(2, '0')).join('').slice(0, 40);
+    } catch (e) {
+      let x = 0; for (let i = 0; i < s.length; i++) x = (x * 31 + s.charCodeAt(i)) | 0;
+      return 'hw2-h' + (x >>> 0).toString(16);
+    }
+  }
+
   // --- Format --------------------------------------------------------
   function waktu(iso, opts) {
     if (!iso) return '';
@@ -138,7 +171,7 @@
   function supabaseBackend() {
     if (KUNCI_RAHASIA) {
       const gagal = async () => { throw new Error('KUNCI_SALAH'); };
-      return { demo: false, daftar: gagal, tiketPerangkat: gagal, sesiAdmin: gagal, login: gagal, logout: async () => {}, ambilAcak: gagal, ambilAcakN: gagal, aturUndian: gagal, semuaPresensi: gagal, riwayat: gagal };
+      return { demo: false, daftar: gagal, statusPerangkat: gagal, permintaan: gagal, putuskan: gagal, tiketPerangkat: gagal, sesiAdmin: gagal, login: gagal, logout: async () => {}, ambilAcak: gagal, ambilAcakN: gagal, aturUndian: gagal, semuaPresensi: gagal, riwayat: gagal };
     }
     const sb = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY, {
       auth: { persistSession: true, storageKey: 'presensi_bps_sulut_admin' },
@@ -149,9 +182,12 @@
       async daftar(d) {
         return satu(await sb.rpc('daftar_presensi', {
           p_nama: d.nama, p_kategori: d.kategori, p_satker: d.satker,
-          p_device: d.device, p_fingerprint: d.fingerprint, p_user_agent: navigator.userAgent,
+          p_device: d.device, p_fingerprint: d.fingerprint, p_user_agent: navigator.userAgent, p_sidik_hw: d.sidikHw,
         }));
       },
+      async statusPerangkat(device) { return satu(await sb.rpc('status_perangkat', { p_device: device })); },
+      async permintaan() { const r = await sb.rpc('daftar_permintaan'); if (r.error) throw r.error; return r.data || []; },
+      async putuskan(id, izinkan) { const r = await sb.rpc('putuskan_permintaan', { p_id: id, p_izinkan: izinkan }); if (r.error) throw r.error; },
       async tiketPerangkat(device) { return satu(await sb.rpc('presensi_perangkat', { p_device: device })); },
       async sesiAdmin() {
         const { data } = await sb.auth.getSession();
@@ -194,22 +230,35 @@
   // --- Backend: demo (localStorage; untuk pratinjau tanpa Supabase) ---
   function demoBackend() {
     const K = 'presensi_bps_sulut_demo_db';
-    const load = () => { try { return JSON.parse(localStorage.getItem(K)) || { p: [], r: [], seq: 0 }; } catch (e) { return { p: [], r: [], seq: 0 }; } };
+    const load = () => { let db; try { db = JSON.parse(localStorage.getItem(K)); } catch (e) { db = null; } db = db || { p: [], r: [], seq: 0 }; db.q = db.q || []; return db; };
     const save = (db) => { try { localStorage.setItem(K, JSON.stringify(db)); } catch (e) { /* abaikan */ } };
     const tunda = (ms) => new Promise((r) => setTimeout(r, ms));
     const pub = (x) => x && ({ nama: x.nama, kategori: x.kategori, satker: x.satker, kode: x.kode, created_at: x.created_at });
     let admin = sessionStorage.getItem('demo_admin');
-    function tambah(db, d) {
+    function tambah(db, d, lewatiCek) {
       const e = validasiNama(d.nama); if (e) throw new Error(e);
       if (!KATEGORI.includes(d.kategori)) throw new Error('KATEGORI_KOSONG');
       if (!SATKER.includes(d.satker)) throw new Error('SATKER_KOSONG');
       const nama = rapikanNama(d.nama);
       if (db.p.some((x) => x.device_id === d.device)) throw new Error('PERANGKAT_SUDAH_ABSEN');
+      if (!lewatiCek) {
+        const q = db.q.find((x) => x.device_id === d.device);
+        if (q && q.status === 'ditolak') throw new Error('PERMINTAAN_DITOLAK');
+        if (q && q.status === 'menunggu') return { menunggu: q };
+      }
       if (db.p.some((x) => x.nama.toLowerCase() === nama.toLowerCase())) throw new Error('NAMA_SUDAH_TERDAFTAR');
+      if (!lewatiCek && d.sidikHw) {
+        const b = db.p.find((x) => x.sidik_hw === d.sidikHw);
+        if (b) {
+          const q = { id: db.q.length + 1, nama, kategori: d.kategori, satker: d.satker, device_id: d.device, sidik_hw: d.sidikHw,
+            bentrok_dengan: b.id, status: 'menunggu', created_at: new Date().toISOString() };
+          db.q.push(q); return { menunggu: q };
+        }
+      }
       let kode;
       do { kode = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, '0'); }
       while (db.p.some((x) => x.kode === kode));
-      const row = { id: ++db.seq, nama, kategori: d.kategori, satker: d.satker, kode, device_id: d.device,
+      const row = { id: ++db.seq, nama, kategori: d.kategori, satker: d.satker, kode, device_id: d.device, sidik_hw: d.sidikHw || null,
         dalam_undian: true, jumlah_terpilih: 0, terakhir_terpilih: null, dikeluarkan_pada: null,
         created_at: new Date().toISOString() };
       db.p.push(row);
@@ -218,8 +267,41 @@
     const wajibAdmin = () => { if (!admin) throw new Error('BUKAN_ADMIN'); };
     return {
       demo: true,
-      async daftar(d) { await tunda(500); const db = load(); const r = tambah(db, d); save(db); return pub(r); },
+      async daftar(d) {
+        await tunda(500); const db = load(); const r = tambah(db, d); save(db);
+        if (r.menunggu) return { status: 'menunggu', nama: r.menunggu.nama, kategori: r.menunggu.kategori, satker: r.menunggu.satker, kode: null, created_at: r.menunggu.created_at, permintaan_id: r.menunggu.id };
+        return Object.assign({ status: 'ok' }, pub(r));
+      },
+      async statusPerangkat(device) {
+        const db = load(); const t = db.p.find((x) => x.device_id === device);
+        if (t) return Object.assign({ status: 'ok' }, pub(t));
+        const q = db.q.find((x) => x.device_id === device && x.status !== 'diizinkan');
+        return q ? { status: q.status, nama: q.nama, kategori: q.kategori, satker: q.satker, kode: null, created_at: q.created_at, permintaan_id: q.id } : null;
+      },
       async tiketPerangkat(device) { return pub(load().p.find((x) => x.device_id === device)); },
+      async permintaan() {
+        wajibAdmin(); const db = load();
+        return db.q.filter((q) => q.status === 'menunggu').map((q) => {
+          const b = db.p.find((x) => x.id === q.bentrok_dengan) || {};
+          return { id: q.id, nama: q.nama, kategori: q.kategori, satker: q.satker, created_at: q.created_at,
+            bentrok_nama: b.nama, bentrok_satker: b.satker, bentrok_kode: b.kode, bentrok_waktu: b.created_at };
+        });
+      },
+      async putuskan(id, izinkan) {
+        wajibAdmin(); const db = load(); const q = db.q.find((x) => x.id === id);
+        if (!q || q.status !== 'menunggu') throw new Error('PERMINTAAN_TIDAK_VALID');
+        if (izinkan) { tambah(db, { nama: q.nama, kategori: q.kategori, satker: q.satker, device: q.device_id, sidikHw: q.sidik_hw }, true); q.status = 'diizinkan'; }
+        else q.status = 'ditolak';
+        save(db);
+      },
+      async simulasiBrowserLain() {
+        // hanya untuk mode demo: meniru HP yang sama dibuka lewat browser lain
+        const db = load(); const b = db.p.find((x) => x.sidik_hw) || db.p[0];
+        if (!b) throw new Error('Belum ada peserta.');
+        const q = { id: db.q.length + 1, nama: 'Coba Browser Lain ' + (db.q.length + 1), kategori: 'Magang', satker: 'Manado',
+          device_id: uuid(), sidik_hw: b.sidik_hw, bentrok_dengan: b.id, status: 'menunggu', created_at: new Date().toISOString() };
+        db.q.push(q); save(db); return q;
+      },
       async sesiAdmin() { return admin ? { email: admin } : null; },
       async login(email, password) {
         await tunda(300);
@@ -331,9 +413,9 @@
   }
 
   window.App = {
-    CFG, SATKER, KATEGORI, PESAN, DEMO,
+    VERSI, peringatanVersi, CFG, SATKER, KATEGORI, PESAN, DEMO,
     api: DEMO ? demoBackend() : supabaseBackend(),
-    kodeError, pesanError, rapikanNama, validasiNama, getDeviceId, sidikPerangkat,
+    kodeError, pesanError, rapikanNama, validasiNama, getDeviceId, sidikPerangkat, sidikHardware,
     waktu, esc, isiQR, unduhXlsx, unduhBlob, toast,
   };
 })();

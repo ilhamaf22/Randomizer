@@ -210,6 +210,27 @@ body.admin { color: #fff; overflow-x: hidden; }
 .sheet-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 22px; border-top: 1px solid var(--line); font-size: 13px; color: var(--ink-2); }
 .sheet-foot .btn { height: 44px; font-size: 14px; }
 
+/* ---------- Izin perangkat ---------- */
+.tbtn.izin { position: relative; }
+.badge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--red); color: #fff; font-size: 12px; font-weight: 800; display: inline-grid; place-items: center; font-family: var(--mono); }
+.tbtn.izin.ada { border-color: rgba(229, 72, 77, .7); background: rgba(229, 72, 77, .18); animation: denyut 1.6s ease-in-out infinite; }
+@keyframes denyut { 50% { box-shadow: 0 0 0 6px rgba(229, 72, 77, .18); } }
+.izin-panel { width: min(720px, 100%); }
+.izin-info { margin: 0 22px 14px; font-size: 13.5px; line-height: 1.5; color: var(--ink-2); background: #fff8ec; border: 1px solid #ffe2b8; padding: 10px 12px; border-radius: 12px; }
+.izin-list { flex: 1; overflow: auto; padding: 0 22px 22px; display: grid; gap: 12px; align-content: start; }
+.izin-empty { text-align: center; color: var(--ink-3); padding: 40px 0; font-size: 14px; }
+.izin-item { border: 1.5px solid var(--line); border-radius: 16px; padding: 14px; display: grid; gap: 12px; }
+.izin-top { display: flex; gap: 12px; align-items: flex-start; }
+.izin-no { flex: none; font-family: var(--mono); font-weight: 800; font-size: 18px; background: var(--navy-800); color: #fff; border-radius: 10px; padding: 6px 10px; }
+.izin-nama { font-weight: 800; font-size: 18px; line-height: 1.2; overflow-wrap: anywhere; }
+.izin-sub { font-size: 13px; color: var(--ink-3); margin-top: 3px; }
+.izin-bentrok { font-size: 13px; background: var(--paper-2); border-radius: 10px; padding: 8px 10px; color: var(--ink-2); }
+.izin-bentrok b { color: var(--ink); }
+.izin-aksi { display: flex; gap: 8px; }
+.izin-aksi .btn { flex: 1; height: 44px; font-size: 14px; }
+.btn-ok { background: var(--green); color: #fff; }
+.btn-ok:hover { filter: brightness(1.05); }
+
 /* ---------- Responsif ---------- */
 @media (max-width: 960px) {
   .stage-wrap { grid-template-columns: 1fr; grid-template-rows: auto auto auto auto; }
